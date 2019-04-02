@@ -1,0 +1,78 @@
+apply plugin: 'java'
+apply plugin: 'application'
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
+    }
+}
+ 
+apply plugin: 'com.github.johnrengelman.shadow'
+
+mainClassName = 'com.criteo.hnsw.HelloHnsw'
+
+repositories {
+   jcenter()
+}
+
+configurations {
+    javacpp
+}
+ext {
+    artifactId = "hnsw-jni"
+    groupId = "com.criteo.hnsw"
+}
+
+dependencies {
+    javacpp group: 'org.bytedeco', name: 'javacpp', version: '1.4.4'
+    compile configurations.javacpp.dependencies
+    testCompile 'junit:junit:4.12'
+
+}
+
+def HnswLibConfigClass= "HnswLibConfig"
+def HnswLibClass= "HnswLib"
+
+task compileConfig(type: JavaCompile) {
+    source = fileTree(dir: 'src', include: "**/${HnswLibConfigClass}.java")
+    destinationDir = file(sourceSets.main.java.outputDir)
+    classpath = files([configurations.javacpp.asPath])
+}
+
+task copyCpp(type: Copy) {
+    from "src/main/cpp/"
+    include "**"
+    into file("${sourceSets.main.java.outputDir}/com/criteo/hnsw/")
+}
+
+task generateJniClass(type: JavaExec, dependsOn: ['compileConfig', 'copyCpp']) {
+    classpath = files([configurations.javacpp.asPath])
+    main = 'org.bytedeco.javacpp.tools.Builder'
+    args = [
+        '-classpath', sourceSets.main.java.outputDir,
+        '-d', 'src/main/java/',
+        "com.criteo.hnsw.${HnswLibConfigClass}"
+    ]
+}
+
+task compileLib(type: JavaCompile) {
+    source = fileTree(dir: 'src', include: ["**/${HnswLibClass}.java", "**/${HnswLibConfigClass}.java"])
+    destinationDir = file(sourceSets.main.java.outputDir)
+    classpath = files([configurations.javacpp.asPath])
+}
+
+task generateLibrary(type: JavaExec, dependsOn: ['generateJniClass', 'compileLib']) {
+    classpath = files([configurations.javacpp.asPath])
+    main = 'org.bytedeco.javacpp.tools.Builder'
+    args = [
+        '-classpath', sourceSets.main.java.outputDir,
+        '-nodelete',
+        "com.criteo.hnsw.${HnswLibClass}"
+    ]
+}
+compileJava.dependsOn generateLibrary
+compileTestJava.dependsOn generateLibrary
+//SET( CMAKE_CXX_FLAGS  "-Ofast -DNDEBUG -std=c++11 -DHAVE_CXX0X -openmp -march=native -fpic -w -fopenmp -ftree-vectorize" )
+//clang++ -I/Library/Java/JavaVirtualMachines/jdk1.8.0_161.jdk/Contents/Home/include -I/Library/Java/JavaVirtualMachines/jdk1.8.0_161.jdk/Contents/Home/include/darwin /Users/d.parfenchik/Dev/hnswlib-jni/build/classes/java/main/com/criteo/hnsw/jniHnswLib.cpp /Users/d.parfenchik/Dev/hnswlib-jni/build/classes/java/main/jnijavacpp.cpp -std=c++11 -march=x86-64 -m64 -O3 -Wl,-rpath,@loader_path/. -Wall -fPIC -dynamiclib -undefined dynamic_lookup -o libjniHnswLib.dylib -framework JavaVM
