@@ -77,8 +77,8 @@ public:
                     "Cannot return the results in a contigious 2D array. Probably ef or M is to small");
         for (int i = k - 1; i >= 0; i--) {
             auto &result_tuple = result.top();
-            distances[k + i] = result_tuple.first;
-            items[k + i] = result_tuple.second;
+            distances[i] = result_tuple.first;
+            items[i] = (size_t)result_tuple.second;
             result.pop();
         }
     }
