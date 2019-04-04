@@ -14,7 +14,6 @@ public:
         if (appr_alg) {
             throw new std::runtime_error("The index is already initiated.");
         }
-        cur_l = 0;
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(space, maxElements, M, efConstruction, random_seed);
         index_inited = true;
     }
@@ -33,7 +32,6 @@ public:
             delete appr_alg;
         }
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(space, path_to_index, false, max_elements);
-        cur_l = appr_alg->cur_element_count;
     }
 
     void normalize_vector(float *data, float *norm_array){
@@ -45,21 +43,18 @@ public:
             norm_array[i]=data[i]*norm;
     }
 
-    float * get_normalized(float * vector) {
+    void addItem(float * vector, size_t id) {
+        float* vector_data = vector;
         std::vector<float> norm_array(dim);
-        normalize_vector(vector, norm_array.data());
-        return norm_array.data();
+        if(normalize) {                    
+            normalize_vector(vector_data, norm_array.data());
+            vector_data = norm_array.data();
+        }
+        appr_alg->addPoint(vector_data, (size_t) id);
     }
 
-    void addItem(float * vector) {
-        size_t id = cur_l;
-        float *vector_data = normalize? get_normalized(vector) : vector;
-        appr_alg->addPoint((void *) vector_data, (size_t) id);
-        cur_l += 1;
-    }
-
-    std::vector<unsigned int> getIdsList() {
-        std::vector<unsigned int> ids;
+    std::vector<size_t> getIdsList() {
+        std::vector<size_t> ids;
 
         for(auto kv : appr_alg->label_lookup_) {
             ids.push_back(kv.first);
@@ -68,7 +63,12 @@ public:
     }
 
     void knnQuery(float * vector, hnswlib::labeltype * items, dist_t * distances, size_t k) {
-        float *vector_data = normalize? get_normalized(vector) : vector;
+        float* vector_data = vector;
+        std::vector<float> norm_array(dim);
+        if(normalize) {                    
+            normalize_vector(vector_data, norm_array.data());
+            vector_data = norm_array.data();
+        }
 
         std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                 (void *) vector_data, k);
@@ -89,7 +89,6 @@ public:
     bool index_inited;
     bool ep_added;
     int num_threads_default;
-    hnswlib::labeltype cur_l;
     hnswlib::HierarchicalNSW<dist_t> *appr_alg;
 
     ~Index() {
@@ -134,12 +133,20 @@ extern "C" {
         ((Index<float> *)index)->loadIndex(path_to_index, max_elements);
     }
 
-    void addItem(long index, float * vector) {
-        ((Index<float> *)index)->addItem(vector);
+    void addItem(long index, float * vector, size_t id) {
+        ((Index<float> *)index)->addItem(vector, id);
     }
 
-    std::vector<unsigned int> getIdsList(long index) {
+    std::vector<float> getItem(long index, size_t id) {
+        return ((Index<float> *)index)->appr_alg->template getDataByLabel<float>(id);
+    }
+
+    std::vector<size_t> getIdsList(long index) {
         return ((Index<float> *)index)->getIdsList();
+    }
+
+    size_t getNItems(long index) {
+        return ((Index<float> *)index)->appr_alg->cur_element_count;
     }
 
     void knnQuery(long index, float * vector, void * items, float * distances, size_t k) {
