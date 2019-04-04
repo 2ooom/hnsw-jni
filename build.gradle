@@ -57,13 +57,13 @@ task generateJniClass(type: JavaExec, dependsOn: ['compileConfig', 'copyCpp']) {
     ]
 }
 
-task compileLib(type: JavaCompile) {
+task compileLib(type: JavaCompile, dependsOn: 'generateJniClass') {
     source = fileTree(dir: 'src', include: ["**/${HnswLibClass}.java", "**/${HnswLibConfigClass}.java"])
     destinationDir = file(sourceSets.main.java.outputDir)
     classpath = files([configurations.javacpp.asPath])
 }
 
-task generateLibrary(type: JavaExec, dependsOn: ['generateJniClass', 'compileLib']) {
+task generateLibrary(type: JavaExec, dependsOn: 'compileLib') {
     classpath = files([configurations.javacpp.asPath])
     main = 'org.bytedeco.javacpp.tools.Builder'
     args = [
