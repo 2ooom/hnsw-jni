@@ -7,19 +7,13 @@ public:
     Index(hnswlib::SpaceInterface<float> *space, const int dim, bool normalize = false) :
             space(space), dim(dim), normalize(normalize) {
         appr_alg = NULL;
-        index_inited = false;
     }
 
-    void init_new_index(const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed) {
+    void initNewIndex(const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed) {
         if (appr_alg) {
             throw new std::runtime_error("The index is already initiated.");
         }
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(space, maxElements, M, efConstruction, random_seed);
-        index_inited = true;
-    }
-
-    void set_ef(size_t ef) {
-        appr_alg->ef_ = ef;
     }
 
     void saveIndex(const std::string &path_to_index) {
@@ -34,8 +28,8 @@ public:
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(space, path_to_index, false, max_elements);
     }
 
-    void normalize_vector(float *data, float *norm_array){
-        float norm=0.0f;
+    void normalizeVector(dist_t *data, dist_t *norm_array){
+        dist_t norm=0.0f;
         for(int i=0;i<dim;i++)
             norm+=data[i]*data[i];
         norm= 1.0f / (sqrtf(norm) + 1e-30f);
@@ -43,11 +37,11 @@ public:
             norm_array[i]=data[i]*norm;
     }
 
-    void addItem(float * vector, size_t id) {
-        float* vector_data = vector;
-        std::vector<float> norm_array(dim);
+    void addItem(dist_t * vector, size_t id) {
+        dist_t* vector_data = vector;
+        std::vector<dist_t> norm_array(dim);
         if(normalize) {                    
-            normalize_vector(vector_data, norm_array.data());
+            normalizeVector(vector_data, norm_array.data());
             vector_data = norm_array.data();
         }
         appr_alg->addPoint(vector_data, (size_t) id);
@@ -62,11 +56,11 @@ public:
         return ids;
     }
 
-    void knnQuery(float * vector, hnswlib::labeltype * items, dist_t * distances, size_t k) {
-        float* vector_data = vector;
-        std::vector<float> norm_array(dim);
+    void knnQuery(dist_t * vector, size_t * items, dist_t * distances, size_t k) {
+        dist_t* vector_data = vector;
+        std::vector<dist_t> norm_array(dim);
         if(normalize) {                    
-            normalize_vector(vector_data, norm_array.data());
+            normalizeVector(vector_data, norm_array.data());
             vector_data = norm_array.data();
         }
 
@@ -86,9 +80,6 @@ public:
     hnswlib::SpaceInterface<float> *space;
     int dim;
     bool normalize;
-    bool index_inited;
-    bool ep_added;
-    int num_threads_default;
     hnswlib::HierarchicalNSW<dist_t> *appr_alg;
 
     ~Index() {
@@ -117,12 +108,16 @@ extern "C" {
         return (long)new Index<float>(space, dim, normalize);
     }
 
-    void init_new_index(long index, const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed) {
-        ((Index<float> *)index)->init_new_index(maxElements, M, efConstruction, random_seed);
+    void destroyIndex(long index) {
+        delete ((Index<float> *)index);
     }
 
-    void set_ef(long index, size_t ef) {
-        ((Index<float> *)index)->set_ef(ef);
+    void initNewIndex(long index, const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed) {
+        ((Index<float> *)index)->initNewIndex(maxElements, M, efConstruction, random_seed);
+    }
+
+    void setEf(long index, size_t ef) {
+        ((Index<float> *)index)->appr_alg->ef_ = ef;
     }
 
     void saveIndex(long index, const std::string &path_to_index) {
@@ -149,7 +144,7 @@ extern "C" {
         return ((Index<float> *)index)->appr_alg->cur_element_count;
     }
 
-    void knnQuery(long index, float * vector, void * items, float * distances, size_t k) {
-        ((Index<float> *)index)->knnQuery(vector, (hnswlib::labeltype *) items, distances, k);
+    void knnQuery(long index, float * vector, size_t * items, float * distances, size_t k) {
+        ((Index<float> *)index)->knnQuery(vector, items, distances, k);
     }
 }

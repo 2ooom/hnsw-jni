@@ -18,7 +18,7 @@ public class HelloHnsw {
 
         String indexPathStr = new File(".", "index-12.hnsw").toString();
 
-        HnswLib.init_new_index(index, nbItems, M, efConstruction, 42);
+        HnswLib.initNewIndex(index, nbItems, M, efConstruction, 42);
         for (int i = 0; i < nbItems; i++) {
             long id = i - 5;
             HnswLib.addItem(index, getVector(dimension, seedValue / (i + 1)), id);

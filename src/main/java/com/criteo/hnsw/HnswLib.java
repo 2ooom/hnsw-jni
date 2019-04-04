@@ -19,9 +19,11 @@ public class HnswLib extends com.criteo.hnsw.HnswLibConfig {
 
     public static native long createDotProduct(int dim);
 
-    public static native void init_new_index(long index, @Cast("const size_t") long maxElements, @Cast("const size_t") long M, @Cast("const size_t") long efConstruction, @Cast("const size_t") long random_seed);
+    public static native void destroyIndex(long index);
 
-    public static native void set_ef(long index, @Cast("size_t") long ef);
+    public static native void initNewIndex(long index, @Cast("const size_t") long maxElements, @Cast("const size_t") long M, @Cast("const size_t") long efConstruction, @Cast("const size_t") long random_seed);
+
+    public static native void setEf(long index, @Cast("size_t") long ef);
 
     public static native void saveIndex(long index, @StdString BytePointer path_to_index);
     public static native void saveIndex(long index, @StdString String path_to_index);
@@ -39,9 +41,9 @@ public class HnswLib extends com.criteo.hnsw.HnswLibConfig {
 
     public static native @Cast("size_t") long getNItems(long index);
 
-    public static native void knnQuery(long index, FloatPointer vector, Pointer items, FloatPointer distances, @Cast("size_t") long k);
-    public static native void knnQuery(long index, FloatBuffer vector, Pointer items, FloatBuffer distances, @Cast("size_t") long k);
-    public static native void knnQuery(long index, float[] vector, Pointer items, float[] distances, @Cast("size_t") long k);
+    public static native void knnQuery(long index, FloatPointer vector, @Cast("size_t*") SizeTPointer items, FloatPointer distances, @Cast("size_t") long k);
+    public static native void knnQuery(long index, FloatBuffer vector, @Cast("size_t*") SizeTPointer items, FloatBuffer distances, @Cast("size_t") long k);
+    public static native void knnQuery(long index, float[] vector, @Cast("size_t*") SizeTPointer items, float[] distances, @Cast("size_t") long k);
 
 
 }
