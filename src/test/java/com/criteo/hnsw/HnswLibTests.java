@@ -2,69 +2,160 @@ package com.criteo.hnsw;
 
 import org.bytedeco.javacpp.FloatPointer;
 import org.bytedeco.javacpp.SizeTPointer;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
 
 public class HnswLibTests {
-    private static float delta = 0.00001f;
+    private static float delta = 1.0E-5f;
+    private float seedValue = 1;
+    private int dimension = 100;
+    private Function<Integer, Float> getValueById = (id) -> id == 0? 0: seedValue / id;
+    private Function<Integer, Float> getNormalizedValueById = i -> i == 0? 0.0f: 1/(float)Math.sqrt(dimension);
+    private long nbItems = 12;
+    private int M = 16;
+    private int efConstruction = 200;
+    private int randomSeed = 42;
+
 
     @Test
-    public void createIndicesNonNormalizedOfEachTypeSaveAndLoad() throws IOException {
-        //System.out.println(Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI().getPath()).toString());
-        int dimension = 100;
-        long nbItems = 12;
-        float seedValue = 0.5f;
-        int M = 16;
-        int efConstruction = 200;
-        int randomSeed = 42;
-
-
-        long[] indices = new long[]{
-            HnswLib.createEuclidean(dimension),
-            HnswLib.createDotProduct(dimension),
-        };
+    public void create_indices_save_and_load() throws IOException {
+        Map<Long, Function<Integer, Float>> indices = new HashMap<Long, Function<Integer, Float>>() {{
+            put(HnswLib.createEuclidean(dimension), getValueById);
+            put(HnswLib.createDotProduct(dimension), getValueById);
+            put(HnswLib.createAngular(dimension), getNormalizedValueById);
+        }};
 
         File dir = Files.createTempDirectory("HnswLib").toFile();
         String indexPathStr = new File(dir, "index.hnsw").toString();
-        System.out.println(indexPathStr);
 
-        for (long index : indices) {
-            HnswLib.init_new_index(index, nbItems, M, efConstruction, randomSeed);
+        long nbItems = 123;
+
+        for (Map.Entry<Long, Function<Integer, Float>> entry : indices.entrySet()) {
+            long index = entry.getKey();
+            Function<Integer, Float> getValueById = entry.getValue();
+
+            HnswLib.initNewIndex(index, nbItems, M, efConstruction, randomSeed);
             assertEquals(0, HnswLib.getNItems(index));
-            for (int i = 0; i < nbItems; i++) {
-                long id = i - 5;
-                HnswLib.addItem(index, getVector(dimension, seedValue / (i + 1)), id);
-            }
+            populateIndex(index, getValueById, nbItems, dimension);
 
             assertEquals(nbItems, HnswLib.getNItems(index));
-            SizeTPointer ids = HnswLib.getIdsList(index);
-            for (int i = 0; i < ids.limit(); i++) {
-                long id = ids.get(i);
-                float expectedValue = seedValue / (id+5 + 1);
-                FloatPointer item = HnswLib.getItem(index, id);
-                assertEquals(dimension, item.limit());
-                for (int j = 0; j < item.limit(); j++) {
-                    assertEquals(expectedValue, item.get(j), delta);
-                }
-            }
+
+            assertAllVectorsMatchExpected(index, dimension, getValueById);
             HnswLib.saveIndex(index, indexPathStr);
 
             HnswLib.loadIndex(index, indexPathStr, nbItems);
-            ids = HnswLib.getIdsList(index);
-            for (int i = 0; i < ids.limit(); i++) {
-                long id = ids.get(i);
-                float expectedValue = seedValue / (id+5 + 1);
-                FloatPointer item = HnswLib.getItem(index, id);
-                assertEquals(dimension, item.limit());
-                for (long j = 0; j < item.limit(); j++) {
-                    assertEquals(expectedValue, item.get(j), delta);
-                }
+            assertAllVectorsMatchExpected(index, dimension, getValueById);
+
+            HnswLib.destroyIndex(index);
+        }
+    }
+
+    @Test
+    public void check_Euclidean_index_returns_correct_neighbours() {
+        int k = (int)nbItems;
+        long index = HnswLib.createEuclidean(dimension);
+
+        HnswLib.initNewIndex(index, nbItems, M, efConstruction, randomSeed);
+        populateIndex(index, getValueById, nbItems, dimension);
+
+        FloatPointer distances = new FloatPointer(k);
+        SizeTPointer items = new SizeTPointer(k);
+        FloatPointer query = HnswLib.getItem(index, 0);
+        HnswLib.knnQuery(index, query, items, distances, k);
+
+        for(int i = 0; i < nbItems; i++) {
+            System.out.println("item: " + items.get(i) + "; distance: " + distances.get(i));
+        }
+        assertEquals(k, distances.limit());
+        assertEquals(k, items.limit());
+
+        // 1st result should be self
+        assertEquals(0, items.get(0));
+        assertEquals(0, distances.get(0), delta);
+
+        for(int i = 1; i < k; i++) {
+            long found = items.get(i);
+            float distance = distances.get(i);
+            assertEquals(k - i, found);
+            assertEquals(dimension * (float)Math.pow(getValueById.apply(k - i), 2), distance, delta);
+        }
+
+        HnswLib.destroyIndex(index);
+    }
+
+    @Test @Ignore("Need to implement ")
+    public void check_Angular_index_returns_correct_neighbours() {
+        int k = (int)nbItems;
+        long index = HnswLib.createAngular(dimension);
+
+        HnswLib.initNewIndex(index, nbItems, M, efConstruction, randomSeed);
+
+        // TODO: Implement
+        HnswLib.destroyIndex(index);
+    }
+
+
+    @Test @Ignore("Inner product of A and B is implemented in hnswlib (space_ip.h) as A*B = 1 - (A1*B1 + A2*B2 + …)")
+    public void check_DotProduct_index_returns_correct_neighbours() {
+        int k = (int)nbItems;
+        long index = HnswLib.createDotProduct(dimension);
+
+        HnswLib.initNewIndex(index, nbItems, M, efConstruction, randomSeed);
+        populateIndex(index, getValueById, nbItems, dimension);
+
+        FloatPointer distances = new FloatPointer(k);
+        SizeTPointer items = new SizeTPointer(k);
+
+        for(int j = 0; j < nbItems; j++) {
+            FloatPointer query = HnswLib.getItem(index, j);
+            HnswLib.knnQuery(index, query, items, distances, k);
+
+            for (int i = 0; i < nbItems; i++) {
+                System.out.println(j + " -> " + items.get(i) + ": " + distances.get(i));
             }
+            assertEquals(k, distances.limit());
+            assertEquals(k, items.limit());
+
+            for (int i = 0; i < k; i++) {
+                long found = items.get(i);
+                float distance = distances.get(i);
+                assertEquals(k - i, found);
+                assertEquals(1 - dimension * getValueById.apply(k - i) * getValueById.apply(j), distance, delta);
+            }
+        }
+        HnswLib.destroyIndex(index);
+    }
+
+    private void populateIndex(long index, Function<Integer, Float> getValueById, long nbItems, int dimension) {
+        for (int i = 0; i < nbItems; i++) {
+            HnswLib.addItem(index, getVector(dimension, getValueById.apply(i)), i);
+        }
+    }
+
+    private void assertAllVectorsMatchExpected(long index, int size, Function<Integer, Float> getExpectedValue) {
+        SizeTPointer ids = HnswLib.getIdsList(index);
+        for (int i = 0; i < ids.limit(); i++) {
+            int id = (int)ids.get(i);
+
+            float expectedValue = getExpectedValue.apply(id);
+            FloatPointer item = HnswLib.getItem(index, id);
+            assertAllValuesEqual(item, size, expectedValue);
+        }
+    }
+
+    private void assertAllValuesEqual(FloatPointer vector, int size, float expectedValue) {
+        assertEquals(size, vector.limit());
+        for (long j = 0; j < size; j++) {
+            assertEquals(expectedValue, vector.get(j), delta);
         }
     }
 
