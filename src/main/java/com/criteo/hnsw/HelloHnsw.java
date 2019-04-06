@@ -1,8 +1,5 @@
 package com.criteo.hnsw;
 
-import org.bytedeco.javacpp.FloatPointer;
-import org.bytedeco.javacpp.SizeTPointer;
-
 import java.io.File;
 
 public class HelloHnsw {
@@ -14,39 +11,45 @@ public class HelloHnsw {
         int efConstruction = 200;
 
 
-        long index = HnswLib.createEuclidean(dimension);
+        HnswIndex index = HnswIndex.create(Metrics.Euclidean, dimension);
 
-        String indexPathStr = new File(".", "index-12.hnsw").toString();
+        String path = new File(".", "index-12.hnsw").toString();
 
-        HnswLib.initNewIndex(index, nbItems, M, efConstruction, 42);
+        index.initNewIndex(nbItems, M, efConstruction);
         for (int i = 0; i < nbItems; i++) {
             long id = i - 5;
-            HnswLib.addItem(index, getVector(dimension, seedValue / (i + 1)), id);
+            float[] vector = getVector(dimension, seedValue / (i + 1));
+            index.addItem(vector, id);
             System.out.println("Set item: " + id);
 
         }
 
-        System.out.println("Saving " + HnswLib.getNItems(index) + " items");
-        HnswLib.saveIndex(index, indexPathStr);
+        System.out.println("Saving " + index.getNbItems() + " items");
+        index.save(path);
 
-        HnswLib.loadIndex(index, indexPathStr, nbItems);
-        System.out.println("Loaded" + HnswLib.getNItems(index) + " items");
-        SizeTPointer ids = HnswLib.getIdsList(index);
+        index.load(path);
+        System.out.println("Loaded" + index.getNbItems() + " items");
+        long[] ids = index.getIds();
 
-        for (long i = 0; i < ids.limit(); i++){
-            long id = ids.get(i);
-            System.out.println("Get item: " + id);
-            FloatPointer v = HnswLib.getItem(index, id);
-
-            System.out.println(v.get(0));
+        for (long id : ids) {
+            System.out.println("Get item: " + id + "; First: " + index.getItem(id)[0]);
         }
+
+        long queryId = -1;
+        float[] query = index.getItem(queryId);
+        KnnResult[] results = index.knnQuery(query, 3);
+
+        for (KnnResult result : results) {
+            System.out.println(queryId + " -> " + result.getItem() + " distance: " + result.getDistance());
+        }
+        index.unload();
     }
 
 
-    private static FloatPointer getVector(int dimension, float value) {
-        FloatPointer vector = new FloatPointer(dimension);
-        for(long i = 0; i < dimension; i++) {
-            vector.put(i, value);
+    private static float[] getVector(int dimension, float value) {
+        float[] vector = new float[dimension];
+        for(int i = 0; i < dimension; i++) {
+            vector[i] = value;
         }
         return vector;
     }

@@ -28,8 +28,8 @@ public class HnswLib extends com.criteo.hnsw.HnswLibConfig {
     public static native void saveIndex(long index, @StdString BytePointer path_to_index);
     public static native void saveIndex(long index, @StdString String path_to_index);
 
-    public static native void loadIndex(long index, @StdString BytePointer path_to_index, @Cast("size_t") long max_elements);
-    public static native void loadIndex(long index, @StdString String path_to_index, @Cast("size_t") long max_elements);
+    public static native void loadIndex(long index, @StdString BytePointer path_to_index);
+    public static native void loadIndex(long index, @StdString String path_to_index);
 
     public static native void addItem(long index, FloatPointer vector, @Cast("size_t") long id);
     public static native void addItem(long index, FloatBuffer vector, @Cast("size_t") long id);
@@ -39,11 +39,11 @@ public class HnswLib extends com.criteo.hnsw.HnswLibConfig {
 
     public static native @Cast("size_t*") @StdVector SizeTPointer getIdsList(long index);
 
-    public static native @Cast("size_t") long getNItems(long index);
+    public static native @Cast("size_t") long getNbItems(long index);
 
-    public static native void knnQuery(long index, FloatPointer vector, @Cast("size_t*") SizeTPointer items, FloatPointer distances, @Cast("size_t") long k);
-    public static native void knnQuery(long index, FloatBuffer vector, @Cast("size_t*") SizeTPointer items, FloatBuffer distances, @Cast("size_t") long k);
-    public static native void knnQuery(long index, float[] vector, @Cast("size_t*") SizeTPointer items, float[] distances, @Cast("size_t") long k);
+    public static native @Cast("size_t") long knnQuery(long index, FloatPointer vector, @Cast("size_t*") SizeTPointer items, FloatPointer distances, @Cast("size_t") long k);
+    public static native @Cast("size_t") long knnQuery(long index, FloatBuffer vector, @Cast("size_t*") SizeTPointer items, FloatBuffer distances, @Cast("size_t") long k);
+    public static native @Cast("size_t") long knnQuery(long index, float[] vector, @Cast("size_t*") SizeTPointer items, float[] distances, @Cast("size_t") long k);
 
 
 }

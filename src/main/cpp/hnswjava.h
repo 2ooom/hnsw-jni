@@ -20,12 +20,12 @@ public:
         appr_alg->saveIndex(path_to_index);
     }
 
-    void loadIndex(const std::string &path_to_index, size_t max_elements) {
+    void loadIndex(const std::string &path_to_index) {
         if (appr_alg) {
             std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
             delete appr_alg;
         }
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(space, path_to_index, false, max_elements);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(space, path_to_index, false, 0);
     }
 
     void normalizeVector(dist_t *data, dist_t *norm_array){
@@ -56,7 +56,7 @@ public:
         return ids;
     }
 
-    void knnQuery(dist_t * vector, size_t * items, dist_t * distances, size_t k) {
+    size_t knnQuery(dist_t * vector, size_t * items, dist_t * distances, size_t k) {
         dist_t* vector_data = vector;
         std::vector<dist_t> norm_array(dim);
         if(normalize) {                    
@@ -66,15 +66,18 @@ public:
 
         std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                 (void *) vector_data, k);
-        if (result.size() != k)
-            throw std::runtime_error(
-                    "Cannot return the results in a contigious 2D array. Probably ef or M is to small");
-        for (int i = k - 1; i >= 0; i--) {
+        size_t nbResults = result.size();
+        if (nbResults != k)
+            std::cout << "Retrieved " << nbResults << " items instead of " <<
+                k << ". Items in the index: " << appr_alg->cur_element_count;
+
+        for (int i = nbResults - 1; i >= 0; i--) {
             auto &result_tuple = result.top();
             distances[i] = result_tuple.first;
             items[i] = (size_t)result_tuple.second;
             result.pop();
         }
+        return nbResults;
     }
 
     hnswlib::SpaceInterface<float> *space;
@@ -124,8 +127,8 @@ extern "C" {
         ((Index<float> *)index)->saveIndex(path_to_index);
     }
 
-    void loadIndex(long index, const std::string &path_to_index, size_t max_elements) {
-        ((Index<float> *)index)->loadIndex(path_to_index, max_elements);
+    void loadIndex(long index, const std::string &path_to_index) {
+        ((Index<float> *)index)->loadIndex(path_to_index);
     }
 
     void addItem(long index, float * vector, size_t id) {
@@ -140,11 +143,11 @@ extern "C" {
         return ((Index<float> *)index)->getIdsList();
     }
 
-    size_t getNItems(long index) {
+    size_t getNbItems(long index) {
         return ((Index<float> *)index)->appr_alg->cur_element_count;
     }
 
-    void knnQuery(long index, float * vector, size_t * items, float * distances, size_t k) {
-        ((Index<float> *)index)->knnQuery(vector, items, distances, k);
+    size_t knnQuery(long index, float * vector, size_t * items, float * distances, size_t k) {
+        return ((Index<float> *)index)->knnQuery(vector, items, distances, k);
     }
 }

@@ -44,15 +44,15 @@ public class HnswLibTests {
             Function<Integer, Float> getValueById = entry.getValue();
 
             HnswLib.initNewIndex(index, nbItems, M, efConstruction, randomSeed);
-            assertEquals(0, HnswLib.getNItems(index));
+            assertEquals(0, HnswLib.getNbItems(index));
             populateIndex(index, getValueById, nbItems, dimension);
 
-            assertEquals(nbItems, HnswLib.getNItems(index));
+            assertEquals(nbItems, HnswLib.getNbItems(index));
 
             assertAllVectorsMatchExpected(index, dimension, getValueById);
             HnswLib.saveIndex(index, indexPathStr);
 
-            HnswLib.loadIndex(index, indexPathStr, nbItems);
+            HnswLib.loadIndex(index, indexPathStr);
             assertAllVectorsMatchExpected(index, dimension, getValueById);
 
             HnswLib.destroyIndex(index);
@@ -70,13 +70,12 @@ public class HnswLibTests {
         FloatPointer distances = new FloatPointer(k);
         SizeTPointer items = new SizeTPointer(k);
         FloatPointer query = HnswLib.getItem(index, 0);
-        HnswLib.knnQuery(index, query, items, distances, k);
+        long nbResults = HnswLib.knnQuery(index, query, items, distances, k);
 
         for(int i = 0; i < nbItems; i++) {
             System.out.println("item: " + items.get(i) + "; distance: " + distances.get(i));
         }
-        assertEquals(k, distances.limit());
-        assertEquals(k, items.limit());
+        assertEquals(k, nbResults);
 
         // 1st result should be self
         assertEquals(0, items.get(0));
@@ -92,7 +91,36 @@ public class HnswLibTests {
         HnswLib.destroyIndex(index);
     }
 
-    @Test @Ignore("Need to implement ")
+    @Test
+    public void check_no_error_happens_if_less_items_is_returned_than_k() {
+        long biggerK = nbItems * 2;
+
+        long index = HnswLib.createEuclidean(dimension);
+
+        HnswLib.initNewIndex(index, nbItems, M, efConstruction, randomSeed);
+        populateIndex(index, getValueById, nbItems, dimension);
+
+        FloatPointer distances = new FloatPointer(biggerK);
+        SizeTPointer items = new SizeTPointer(biggerK);
+        FloatPointer query = HnswLib.getItem(index, 0);
+        long nbResults = HnswLib.knnQuery(index, query, items, distances, biggerK);
+
+        for(int i = 0; i < nbItems; i++) {
+            System.out.println("item: " + items.get(i) + "; distance: " + distances.get(i));
+        }
+        assertEquals(nbItems, nbResults);
+
+        for(int i = 1; i < nbItems; i++) {
+            long found = items.get(i);
+            float distance = distances.get(i);
+            assertEquals(nbItems - i, found);
+            assertEquals(dimension * (float)Math.pow(getValueById.apply((int)nbItems - i), 2), distance, delta);
+        }
+
+        HnswLib.destroyIndex(index);
+    }
+
+    @Test @Ignore("Need to implement")
     public void check_Angular_index_returns_correct_neighbours() {
         int k = (int)nbItems;
         long index = HnswLib.createAngular(dimension);
