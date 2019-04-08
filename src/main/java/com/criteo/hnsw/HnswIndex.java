@@ -15,7 +15,7 @@ public class HnswIndex {
             case Metrics.Angular: pointer = HnswLib.createAngular(dimension); break;
             case Metrics.Euclidean: pointer = HnswLib.createEuclidean(dimension); break;
             case Metrics.DotProduct: pointer = HnswLib.createDotProduct(dimension); break;
-            default: throw new NotImplementedException();
+            default: throw new UnsupportedOperationException();
         }
 
         return new HnswIndex(pointer);
