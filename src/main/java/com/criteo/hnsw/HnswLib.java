@@ -9,9 +9,9 @@ import org.bytedeco.javacpp.annotation.*;
 public class HnswLib extends com.criteo.hnsw.HnswLibConfig {
     static { Loader.load(); }
 
-// Parsed from hnswjava.h
+// Parsed from hnswjava_api.h
 
-// #include <iostream>
+// #include "hnswindex.h"
 // #include "hnswlib.h"
     public static native long createAngular(int dim);
 

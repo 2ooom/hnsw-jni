@@ -6,7 +6,7 @@ import org.bytedeco.javacpp.tools.*;
 @Properties(
         value = @Platform(
                 compiler = {"cpp11"},
-                include = {"hnswjava.h"}
+                include = {"hnswjava_api.h"}
         ),
         target = "com.criteo.hnsw",
         global = "com.criteo.hnsw.HnswLib"
