@@ -47,6 +47,17 @@ public:
         appr_alg->addPoint(vector_data, (size_t) id);
     }
 
+    void getDataPointerByLabel(size_t label, data_t* dst) {
+        hnswlib::tableint label_c;
+        auto search = appr_alg->label_lookup_.find(label);
+        if (search == appr_alg->label_lookup_.end()) {
+            throw std::runtime_error("Label not found");
+        }
+        label_c = search->second;
+        data_t* data_ptr = (data_t*)appr_alg->getDataByInternalId(label_c);
+        memcpy(dst, data_ptr, appr_alg->data_size_);
+    }
+
     std::vector<size_t> getIdsList() {
         std::vector<size_t> ids;
 
